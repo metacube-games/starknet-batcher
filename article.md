@@ -277,6 +277,22 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 
 The `runSendActor` function is the sender actor's event loop. It waits for the Builder to send batch transactions, signs them, sends them to the Starknet network, and monitors their status.
 
+A note on fee estimation: one could estimate the fee cost of the batch transaction before sending it. The following code can be added after signing the transaction:
+
+```go
+		fee, err := b.accnt.EstimateFee(
+			context.Background(),
+			[]rpc.BroadcastTxn{txn},
+			[]rpc.SimulationFlag{},
+			rpc.WithBlockTag("latest"),
+		)
+		if err != nil {
+			...
+		}
+```
+
+This might be useful to ensure the fee is not too high before sending the transaction. If the estimated fee is higher than expected, one might also need to re-adjust the max fee field of the transaction if the estimated fee is higher than expected. But note that when any change is made to the transaction, it must be signed again!
+
 ## Towards a generic batcher
 
 The batcher presented is specific to sending NFTs from the same contract. However, the architecture can easily be adapted to send any type of transaction.
