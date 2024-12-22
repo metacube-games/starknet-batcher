@@ -2,6 +2,8 @@
 
 This repository gathers the code mentionned in the article [A Starknet transactions batcher](TODO).
 
+![Architecture](./batcher.png)
+
 ## CLI tool
 
 One can use the batcher as a CLI tool to send a bunch of NFT transactions. First, create a `.env` file as the `template.env`:
