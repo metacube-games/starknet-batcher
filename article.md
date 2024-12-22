@@ -13,7 +13,7 @@ The Batcher is composed of two main actors:
 - The **Builder** receives the transactions, batches them into a single [multicall](https://docs.argent.xyz/aa-use-cases/multicalls) transaction, and sends it to the Sender actor.
 - The **Sender** finalizes the transaction with appropriate fields (nonce, max fee, etc.), signs it, sends it to the Starknet network, and monitors its status.
 
-This actor separation allows for a scalable and efficient batcher. The builder prepares the transactions while the sender sends them, allowing for a continuous flow of transactions.
+This actor separation allows for a scalable and efficient batcher. The builder prepares the transactions while the sender sends them, allowing for a continuous and efficient flow of transactions.
 
 ## Implementation
 
@@ -299,7 +299,7 @@ The batcher presented is specific to sending NFTs from the same contract. Howeve
 
 First, the transaction data sent to the Batcher must be more generic and, therefore, contain more information. They must contain the contract address, the entry point selector, and the call data. The `buildFunctionCall` function must then be adapted to parse this information.
 
-One could also go one step further by making the sender account generic. This would require more refactoring, as the sender account must batch the transactions. However, it is feasible and would allow for a more versatile batcher.
+One could also go one step further by making the sender account generic. This would require more refactoring, as the transactions must be batched per sender account. However, it is feasible and would allow for a more versatile batcher.
 
 However, remember that premature optimization is the root of all evil. Therefore, if you just need to send NFTs or a specific token such as ETH or STRK, the batcher presented is more than enough.
 
