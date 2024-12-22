@@ -1,6 +1,6 @@
 # starknet-batcher
 
-This repository gathers the code mentionned in the article [A Starknet transactions batcher](TODO).
+This repository gathers the code mentionned in the article [A Starknet transactions batcher](https://dev.to/bastienfaivre/a-starknet-transactions-batcher-1hpk).
 
 ![Architecture](./batcher.png)
 
