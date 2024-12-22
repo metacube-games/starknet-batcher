@@ -66,20 +66,20 @@ Let's analyze the Build actor. Note that the code is simplified for better reada
 ```go
 // This function builds a function call from the transaction data.
 func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
-    // Parse the recipient address
+    	// Parse the recipient address
 	toAddressInFelt, err := utils.HexToFelt(data[0])
 	if err != nil {
 		...
 	}
 
-    // Parse the NFT ID
+    	// Parse the NFT ID
 	nftID, err := strconv.Atoi(data[1])
 	if err != nil {
 		...
 	}
 
-    // The entry point is a standard ERC721 function
-    // https://docs.openzeppelin.com/contracts-cairo/0.20.0/erc721
+    	// The entry point is a standard ERC721 function
+    	// https://docs.openzeppelin.com/contracts-cairo/0.20.0/erc721
 	return &rpc.FunctionCall{
 		ContractAddress: b.contractAddress,
 		EntryPointSelector: utils.GetSelectorFromNameFelt(
@@ -97,7 +97,7 @@ func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
 
 // This function builds the batch transaction from the function calls.
 func (b *Batcher) buildBatchTransaction(functionCalls []rpc.FunctionCall) (rpc.BroadcastInvokev1Txn, error) {
-    // Format the calldata (i.e., the function calls)
+    	// Format the calldata (i.e., the function calls)
 	calldata, err := b.accnt.FmtCalldata(functionCalls)
 	if err != nil {
 		...
@@ -122,11 +122,11 @@ func (b *Batcher) runBuildActor(txnDataPairChan chan<- TxnDataPair) {
 	currentData := make([][]string, 0, b.maxSize)
 
 	for {
-        // Boolean to trigger the batch building
+        	// Boolean to trigger the batch building
 		trigger := false
 
 		select {
-        // Receive new transaction data
+        	// Receive new transaction data
 		case data, ok := <-b.inChan:
 			if !ok {
 				...
@@ -134,7 +134,7 @@ func (b *Batcher) runBuildActor(txnDataPairChan chan<- TxnDataPair) {
 
 			functionCall, err := b.buildFunctionCall(data)
 			if err != nil {
-                ...
+                		...
 			}
 
 			functionCalls = append(functionCalls, *functionCall)
@@ -142,11 +142,11 @@ func (b *Batcher) runBuildActor(txnDataPairChan chan<- TxnDataPair) {
 			currentData = append(currentData, data)
 
 			if size >= b.maxSize {
-                // The batch is full, trigger the building
+                		// The batch is full, trigger the building
 				trigger = true
 			}
 
-        // We don't want a smaller batch to wait indefinitely to be full, so we set a timeout to trigger the building even if the batch is not full
+        	// We don't want a smaller batch to wait indefinitely to be full, so we set a timeout to trigger the building even if the batch is not full
 		case <-time.After(WAITING_TIME):
 			if size > 0 {
 				trigger = true
@@ -156,16 +156,16 @@ func (b *Batcher) runBuildActor(txnDataPairChan chan<- TxnDataPair) {
 		if trigger {
 			builtTxn, err := b.buildBatchTransaction(functionCalls)
 			if err != nil {
-                ...
+                		...
 			} else {
-                // Send the batch transaction to the Sender
+                		// Send the batch transaction to the Sender
 				txnDataPairChan <- TxnDataPair{
 					Txn:  builtTxn,
 					Data: currentData,
 				}
 			}
 
-            // Reset variables
+            		// Reset variables
 			size = 0
 			functionCalls = make([]rpc.FunctionCall, 0, b.maxSize)
 			currentData = make([][]string, 0, b.maxSize)
@@ -186,7 +186,7 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 	oldNonce := new(felt.Felt).SetUint64(0)
 
 	for {
-        // Receive the batch transaction
+        	// Receive the batch transaction
 		txnDataPair, ok := <-txnDataPairChan
 		if !ok {
 			...
@@ -194,70 +194,70 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 		txn := txnDataPair.Txn
 		data := txnDataPair.Data
 
-        // Get the current nonce of the sender account
+        	// Get the current nonce of the sender account
 		nonce, err := b.accnt.Nonce(
 			context.Background(),
 			rpc.BlockID{Tag: "latest"},
 			b.accnt.AccountAddress,
 		)
 		if err != nil {
-            ...
+            		...
 		}
 
-        // It might happen that the nonce is not directly updated if another transaction was sent just before. Therefore, we manually increment it to make sure this new transaction is sent with the correct nonce
+        	// It might happen that the nonce is not directly updated if another transaction was sent just before. Therefore, we manually increment it to make sure this new transaction is sent with the correct nonce
 		if nonce.Cmp(oldNonce) <= 0 {
 			nonce.Add(oldNonce, new(felt.Felt).SetUint64(1))
 		}
 
 		txn.InvokeTxnV1.Nonce = nonce
 
-        // Sign the transaction
+        	// Sign the transaction
 		err = b.accnt.SignInvokeTransaction(
 			context.Background(),
 			&txn.InvokeTxnV1,
 		)
 		if err != nil {
-            ...
+            		...
 		}
 
-        // Send the transaction to the Starknet network
+        	// Send the transaction to the Starknet network
 		resp, err := b.accnt.AddInvokeTransaction(
 			context.Background(),
 			&txn,
 		)
 		if err != nil {
-            ...
+            		...
 		}
 
-        // Monitor the transaction status
+        	// Monitor the transaction status
 	statusLoop:
 		for {
-            // Wait a bit before checking the status
+            		// Wait a bit before checking the status
 			time.Sleep(time.Second * 5)
 
-            // Get the transaction status
+            		// Get the transaction status
 			txStatus, err := b.accnt.GetTransactionStatus(
 				context.Background(),
 				resp.TransactionHash,
 			)
 			if err != nil {
-                ...
+                		...
 			}
 
-            // Check the execution status
+            		// Check the execution status
 			switch txStatus.ExecutionStatus {
 			case rpc.TxnExecutionStatusSUCCEEDED:
 				oldNonce = nonce
 				break statusLoop
 			case rpc.TxnExecutionStatusREVERTED:
-                // A reverted transaction consumes the nonce
+                		// A reverted transaction consumes the nonce
 				oldNonce = nonce
 				...
 				break statusLoop
 			default:
 			}
 
-            // Check the finality status
+            		// Check the finality status
 			switch txStatus.FinalityStatus {
 			case rpc.TxnStatus_Received:
 				continue
@@ -269,7 +269,7 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 			default:
 			}
 
-            // Loop until the transaction status is determined
+            		// Loop until the transaction status is determined
 		}
 	}
 }
