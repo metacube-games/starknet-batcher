@@ -293,6 +293,8 @@ A note on fee estimation: one could estimate the fee cost of the batch transacti
 
 This might be useful to ensure the fee is not too high before sending the transaction. If the estimated fee is higher than expected, one might also need to re-adjust the max fee field of the transaction if the estimated fee is higher than expected. But note that when any change is made to the transaction, it must be signed again!
 
+However, note that you might get some issues when estimating fees if the throughput of transactions is quite high. This is because when a given transaction is just approved, there is a bit of delay in updating the account. Therefore, when estimating the fee for the next transaction, it might fail, thinking that the nonce is still the previous one. So, if you still want to estimate fees, then you might need to provide some sleep between each transaction to avoid such problems.
+
 ## Towards a generic batcher
 
 The batcher presented is specific to sending NFTs from the same contract. However, the architecture can easily be adapted to send any type of transaction.
