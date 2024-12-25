@@ -292,7 +292,7 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 
 		// b.sendPrintf(index, fmt.Sprintf("Estimated fee: %s", fee[0].OverallFee.Text(10)))
 
-		resp, err := b.accnt.AddInvokeTransaction(
+		resp, err := b.accnt.SendTransaction(
 			context.Background(),
 			&txn,
 		)
