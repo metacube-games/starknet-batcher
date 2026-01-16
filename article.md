@@ -1,5 +1,6 @@
 ## CHANGELOG
 
+- 16.01.2026: Updated Go code due to breaking changes in the starknet.go library (>= v0.17.1)
 - 25.12.2024: Updated Go code due to breaking changes in the starknet.go library (>= v0.7.3)
 
 ## Abstract
@@ -49,7 +50,7 @@ The Batcher runs both the `Builder` and the `Sender` actors concurrently:
 
 ```go
 type TxnDataPair struct {
-	Txn  rpc.BroadcastInvokev1Txn
+	Txn  rpc.InvokeTxnV1
 	Data [][]string
 }
 
@@ -90,7 +91,7 @@ func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
 			"safe_transfer_from",
 		),
 		Calldata: []*felt.Felt{
-			b.accnt.AccountAddress, // from
+			b.accnt.Address, // from
 			toAddressInFelt, // to
 			new(felt.Felt).SetUint64(uint64(nftID)), // NFT ID
 			new(felt.Felt).SetUint64(0), // data -> None
@@ -100,22 +101,20 @@ func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
 }
 
 // This function builds the batch transaction from the function calls.
-func (b *Batcher) buildBatchTransaction(functionCalls []rpc.FunctionCall) (rpc.BroadcastInvokev1Txn, error) {
+func (b *Batcher) buildBatchTransaction(functionCalls []rpc.FunctionCall) (rpc.InvokeTxnV1, error) {
     	// Format the calldata (i.e., the function calls)
 	calldata, err := b.accnt.FmtCalldata(functionCalls)
 	if err != nil {
 		...
 	}
 
-	return rpc.BroadcastInvokev1Txn{
-		InvokeTxnV1: rpc.InvokeTxnV1{
-			MaxFee:        new(felt.Felt).SetUint64(MAX_FEE),
-			Version:       rpc.TransactionV1,
-			Nonce:         new(felt.Felt).SetUint64(0), // Will be set by the send actor
-			Type:          rpc.TransactionType_Invoke,
-			SenderAddress: b.accnt.AccountAddress,
-			Calldata:      calldata,
-		},
+	return rpc.InvokeTxnV1{
+		MaxFee:        new(felt.Felt).SetUint64(MAX_FEE),
+		Version:       rpc.TransactionV1,
+		Nonce:         new(felt.Felt).SetUint64(0), // Will be set by the send actor
+		Type:          rpc.TransactionTypeInvoke,
+		SenderAddress: b.accnt.Address,
+		Calldata:      calldata,
 	}, nil
 }
 
@@ -199,11 +198,7 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 		data := txnDataPair.Data
 
         	// Get the current nonce of the sender account
-		nonce, err := b.accnt.Nonce(
-			context.Background(),
-			rpc.BlockID{Tag: "latest"},
-			b.accnt.AccountAddress,
-		)
+		nonce, err := b.accnt.Nonce(context.Background())
 		if err != nil {
             		...
 		}
@@ -213,22 +208,16 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 			nonce.Add(oldNonce, new(felt.Felt).SetUint64(1))
 		}
 
-		txn.InvokeTxnV1.Nonce = nonce
+		txn.Nonce = nonce
 
         	// Sign the transaction
-		err = b.accnt.SignInvokeTransaction(
-			context.Background(),
-			&txn.InvokeTxnV1,
-		)
+		err = b.accnt.SignInvokeTransaction(context.Background(), &txn)
 		if err != nil {
             		...
 		}
 
         	// Send the transaction to the Starknet network
-		resp, err := b.accnt.SendTransaction(
-			context.Background(),
-			&txn,
-		)
+		resp, err := b.accnt.SendTransaction(context.Background(), &txn)
 		if err != nil {
             		...
 		}
@@ -240,9 +229,9 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 			time.Sleep(time.Second * 5)
 
             		// Get the transaction status
-			txStatus, err := b.accnt.GetTransactionStatus(
+			txStatus, err := b.accnt.Provider.TransactionStatus(
 				context.Background(),
-				resp.TransactionHash,
+				resp.Hash,
 			)
 			if err != nil {
                 		...
@@ -263,13 +252,11 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 
             		// Check the finality status
 			switch txStatus.FinalityStatus {
-			case rpc.TxnStatus_Received:
+			case rpc.TxnStatusReceived:
 				continue
-			case rpc.TxnStatus_Accepted_On_L2, rpc.TxnStatus_Accepted_On_L1:
+			case rpc.TxnStatusAcceptedOnL2, rpc.TxnStatusAcceptedOnL1:
 				oldNonce = nonce
 				break statusLoop
-			case rpc.TxnStatus_Rejected:
-				...
 			default:
 			}
 

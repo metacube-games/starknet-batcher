@@ -60,7 +60,7 @@ func NewBatcher(
 }
 
 type TxnDataPair struct {
-	Txn  rpc.BroadcastInvokev1Txn
+	Txn  rpc.InvokeTxnV1
 	Data [][]string
 }
 
@@ -110,7 +110,7 @@ func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
 			"safe_transfer_from",
 		),
 		Calldata: []*felt.Felt{
-			b.accnt.AccountAddress,
+			b.accnt.Address,
 			toAddressInFelt,
 			new(felt.Felt).SetUint64(uint64(nftID)),
 			new(felt.Felt).SetUint64(0), // data -> None
@@ -119,21 +119,19 @@ func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
 	}, nil
 }
 
-func (b *Batcher) buildBatchTransaction(functionCalls []rpc.FunctionCall) (rpc.BroadcastInvokev1Txn, error) {
+func (b *Batcher) buildBatchTransaction(functionCalls []rpc.FunctionCall) (rpc.InvokeTxnV1, error) {
 	calldata, err := b.accnt.FmtCalldata(functionCalls)
 	if err != nil {
-		return rpc.BroadcastInvokev1Txn{}, fmt.Errorf("error formatting the calldata: %v", err)
+		return rpc.InvokeTxnV1{}, fmt.Errorf("error formatting the calldata: %v", err)
 	}
 
-	return rpc.BroadcastInvokev1Txn{
-		InvokeTxnV1: rpc.InvokeTxnV1{
-			MaxFee:        new(felt.Felt).SetUint64(MAX_FEE),
-			Version:       rpc.TransactionV1,
-			Nonce:         new(felt.Felt).SetUint64(0), // Will be set by the send actor
-			Type:          rpc.TransactionType_Invoke,
-			SenderAddress: b.accnt.AccountAddress,
-			Calldata:      calldata,
-		},
+	return rpc.InvokeTxnV1{
+		MaxFee:        new(felt.Felt).SetUint64(MAX_FEE),
+		Version:       rpc.TransactionV1,
+		Nonce:         new(felt.Felt).SetUint64(0), // Will be set by the send actor
+		Type:          rpc.TransactionTypeInvoke,
+		SenderAddress: b.accnt.Address,
+		Calldata:      calldata,
 	}, nil
 }
 
@@ -232,11 +230,7 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 
 		b.sendPrintf(index, "Received new batch transaction")
 
-		nonce, err := b.accnt.Nonce(
-			context.Background(),
-			rpc.BlockID{Tag: "latest"},
-			b.accnt.AccountAddress,
-		)
+		nonce, err := b.accnt.Nonce(context.Background())
 		if err != nil {
 			b.sendPrintf(index, fmt.Sprintf("Error getting the account nonce: %v", err))
 			for _, data := range data {
@@ -251,12 +245,9 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 		}
 
 		b.sendPrintf(index, fmt.Sprintf("Account nonce: %s", nonce.Text(10)))
-		txn.InvokeTxnV1.Nonce = nonce
+		txn.Nonce = nonce
 
-		err = b.accnt.SignInvokeTransaction(
-			context.Background(),
-			&txn.InvokeTxnV1,
-		)
+		err = b.accnt.SignInvokeTransaction(context.Background(), &txn)
 		if err != nil {
 			b.sendPrintf(index, fmt.Sprintf("Error signing the transaction: %v", err))
 			for _, data := range data {
@@ -292,10 +283,7 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 
 		// b.sendPrintf(index, fmt.Sprintf("Estimated fee: %s", fee[0].OverallFee.Text(10)))
 
-		resp, err := b.accnt.SendTransaction(
-			context.Background(),
-			&txn,
-		)
+		resp, err := b.accnt.SendTransaction(context.Background(), &txn)
 		if err != nil {
 			b.sendPrintf(index, fmt.Sprintf("Error adding the transaction: %v", err))
 			for _, data := range data {
@@ -305,15 +293,15 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 		}
 
 		b.sendPrintf(index, "Transaction submitted")
-		b.sendPrintf(index, fmt.Sprintf("Transaction hash: %s", resp.TransactionHash))
+		b.sendPrintf(index, fmt.Sprintf("Transaction hash: %s", resp.Hash))
 
 	statusLoop:
 		for {
 			time.Sleep(time.Second * 5)
 
-			txStatus, err := b.accnt.GetTransactionStatus(
+			txStatus, err := b.accnt.Provider.TransactionStatus(
 				context.Background(),
-				resp.TransactionHash,
+				resp.Hash,
 			)
 			if err != nil {
 				b.sendPrintf(index, fmt.Sprintf("Error getting the transaction status: %v", err))
@@ -343,17 +331,11 @@ func (b *Batcher) runSendActor(txnDataPairChan <-chan TxnDataPair) {
 			}
 
 			switch txStatus.FinalityStatus {
-			case rpc.TxnStatus_Received:
+			case rpc.TxnStatusReceived:
 				continue
-			case rpc.TxnStatus_Accepted_On_L2, rpc.TxnStatus_Accepted_On_L1:
+			case rpc.TxnStatusAcceptedOnL2, rpc.TxnStatusAcceptedOnL1:
 				b.sendPrintf(index, "Transaction succeeded")
 				oldNonce = nonce
-				break statusLoop
-			case rpc.TxnStatus_Rejected:
-				b.sendPrintf(index, "Transaction rejected")
-				for _, data := range data {
-					b.failChan <- data
-				}
 				break statusLoop
 			default:
 			}
@@ -426,7 +408,7 @@ func main() {
 		log.Fatal("Error reading the CSV file: ", err)
 	}
 
-	client, err := rpc.NewProvider(envFile["RPC_URL"])
+	client, err := rpc.NewProvider(context.Background(), envFile["RPC_URL"])
 	if err != nil {
 		log.Fatal("Error creating the RPC client: ", err)
 	}
@@ -446,7 +428,7 @@ func main() {
 		accountAddressInFelt,
 		"",
 		ks,
-		accountCairoVersion,
+		account.CairoVersion(accountCairoVersion),
 	)
 	if err != nil {
 		log.Fatal("Error creating the account: ", err)
@@ -459,7 +441,7 @@ func main() {
 		log.Fatal("Error converting the contract address to Felt: ", err)
 	}
 
-	fmt.Printf("\tSender address: %s\n", accnt.AccountAddress)
+	fmt.Printf("\tSender address: %s\n", accnt.Address)
 	fmt.Printf("\tContract address: %s\n", contractAddressInFelt)
 	fmt.Printf("\tNumber of transactions: %d\n", len(data))
 	fmt.Println("Initialization completed successfully")
