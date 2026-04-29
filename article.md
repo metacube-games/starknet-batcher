@@ -1,5 +1,6 @@
 ## CHANGELOG
 
+- 29.04.2026: Updated Go to v1.26.2, juno to v0.16.0, go-ethereum to v1.17.2, and other indirect dependencies; updated broken/moved external links
 - 16.01.2026: Updated Go code due to breaking changes in the starknet.go library (>= v0.17.1)
 - 25.12.2024: Updated Go code due to breaking changes in the starknet.go library (>= v0.7.3)
 
@@ -15,7 +16,7 @@ All the code snippets are available in the [associated GitHub repository](https:
 
 The Batcher is composed of two main actors:
 
-- The **Builder** receives the transactions, batches them into a single [multicall](https://docs.argent.xyz/aa-use-cases/multicalls) transaction, and sends it to the Sender actor.
+- The **Builder** receives the transactions, batches them into a single [multicall](https://docs.ready.co/aa-use-cases/multicalls) transaction, and sends it to the Sender actor.
 - The **Sender** finalizes the transaction with appropriate fields (nonce, max fee, etc.), signs it, sends it to the Starknet network, and monitors its status.
 
 This actor separation allows for a scalable and efficient batcher. The builder prepares the transactions while the sender sends them, allowing for a continuous and efficient flow of transactions.
@@ -26,7 +27,7 @@ The following implementation is specific to Go, but the concepts can easily be a
 
 Moreover, note that this implementation is specific to sending NFTs from the same contract. However, a more generic approach is mentioned later in the article.
 
-Lastly, the code is based on the [starknet.go](https://github.com/NethermindEth/starknet.go) library developed by [Nethermind](https://nethermind.io/).
+Lastly, the code is based on the [starknet.go](https://github.com/NethermindEth/starknet.go) library developed by [Nethermind](https://nethermind.io/) (note: this library is no longer actively maintained).
 
 ### Batcher
 
@@ -84,7 +85,7 @@ func (b *Batcher) buildFunctionCall(data []string) (*rpc.FunctionCall, error) {
 	}
 
     	// The entry point is a standard ERC721 function
-    	// https://docs.openzeppelin.com/contracts-cairo/0.20.0/erc721
+    	// https://old-docs.openzeppelin.com/contracts-cairo/0.20.0/erc721
 	return &rpc.FunctionCall{
 		ContractAddress: b.contractAddress,
 		EntryPointSelector: utils.GetSelectorFromNameFelt(
