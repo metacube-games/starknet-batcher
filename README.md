@@ -1,5 +1,8 @@
 # starknet-batcher
 
+> [!WARNING]
+> **This project is no longer maintained.** It was written as a companion to the article [A Starknet transactions batcher](https://dev.to/bastienfaivre/a-starknet-transactions-batcher-1hpk) and won't receive further updates, so dependencies and Starknet RPC compatibility may drift over time. Use it at your own risk.
+
 This repository gathers the code mentionned in the article [A Starknet transactions batcher](https://dev.to/bastienfaivre/a-starknet-transactions-batcher-1hpk).
 
 ![Architecture](./batcher.png)
